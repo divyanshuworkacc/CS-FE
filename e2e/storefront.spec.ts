@@ -17,6 +17,7 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
     { id: 6, name: 'Studio linen throw', category: 'Home', price: 56, quantity: 4, tenant_id: 2 },
   ]
   const orders: unknown[] = []
+  const productRequests: string[] = []
   const profile = { id: 1, name: 'Alex', username: 'alex', tenant_id: 1, role_id: role === 'Admin' ? 1 : 3, role, tenant_name: 'acme' }
   await page.route('http://localhost:8080/**', async route => {
     const url = new URL(route.request().url())
@@ -51,21 +52,31 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
       await route.fulfill({ status: 401, json: { detail: 'Not authenticated' } }); return
     }
     if (path === '/tenants') {
-      if (method === 'POST') tenants.push({ id: 3, ...request.postDataJSON() })
-      await route.fulfill({ json: tenants })
+      if (method === 'POST') {
+        const brand = { id: Math.max(...tenants.map(tenant => tenant.id)) + 1, ...request.postDataJSON() }
+        tenants.push(brand)
+        await route.fulfill({ json: brand })
+      } else await route.fulfill({ json: tenants })
     } else if (path === '/products') {
       const params = new URL(request.url()).searchParams
+      productRequests.push(request.url())
       const search = params.get('search')?.toLowerCase()
       const category = params.get('category')
+      const sort = params.get('sort') || 'featured'
       const skip = Number(params.get('skip') || 0)
       const limit = Number(params.get('limit') || 10)
       const matches = products.filter(product => (!search || product.name.toLowerCase().includes(search))
         && (!category || product.category === category))
+      if (sort === 'price-low') matches.sort((a, b) => a.price - b.price || a.id - b.id)
+      if (sort === 'price-high') matches.sort((a, b) => b.price - a.price || a.id - b.id)
+      if (sort === 'name') matches.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id - b.id)
       await route.fulfill({ json: matches.slice(skip, skip + limit) })
     } else if (path === '/users/me') {
       await route.fulfill(registered ? { json: profile } : { status: 404, json: { detail: 'Authenticated with Keycloak but no matching local account. Call POST /users to complete registration.' } })
     } else if (path === '/users' && method === 'POST') {
-      registered = true; Object.assign(profile, request.postDataJSON()); await route.fulfill({ json: profile })
+      registered = true; await route.fulfill({ json: profile })
+    } else if (path === '/acme/dashboard') {
+      await route.fulfill({ json: tenants[0] })
     } else if (path === '/acme/products') {
       if (method === 'POST') { const product = { id: 5, tenant_id: 1, ...request.postDataJSON() }; products.push(product); await route.fulfill({ json: product }) }
       else await route.fulfill({ json: products.filter(product => product.tenant_id === 1) })
@@ -99,11 +110,11 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
     else if (path === '/acme/users') { await route.fulfill({ json: [profile] }) }
     else await route.fulfill({ status: 404, json: { detail: 'Not found' } })
   })
-  return { products, authorization: () => authorization }
+  return { products, authorization: () => authorization, productRequests }
 }
 
 test('browses, filters, sorts, and preserves the bag across reloads', async ({ page }) => {
-  await fixture(page)
+  const state = await fixture(page)
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled()
   await expect(page.locator('.product-card')).toHaveCount(5)
@@ -116,10 +127,14 @@ test('browses, filters, sorts, and preserves the bag across reloads', async ({ p
   await page.reload()
   await expect(page.getByRole('button', { name: 'Shopping bag, 1 items' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add Studio headphones to bag', exact: true })).toBeDisabled()
+  await page.getByLabel('Sort products').selectOption('price-high')
+  await expect(page.locator('.product-card h3').first()).toHaveText('Studio headphones')
+  expect(state.productRequests[state.productRequests.length - 1]).toContain('sort=price-high')
   await page.getByLabel('Sort products').selectOption('price-low')
   await expect(page.locator('.product-card h3').first()).toHaveText('Sunday ceramic mug')
+  expect(state.productRequests[state.productRequests.length - 1]).toContain('sort=price-low')
   await page.getByRole('button', { name: 'Shopping bag, 1 items' }).click()
-  await expect(page.getByRole('dialog')).toContainText('$24.00')
+  await expect(page.getByRole('dialog')).toContainText('₹24.00')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).not.toBeVisible()
   await page.getByLabel('Filter products by brand').selectOption('2')
@@ -160,8 +175,8 @@ test('uses PKCE login and checks out items from multiple brands together', async
   await page.getByRole('button', { name: 'Place order', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Order #0001' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Order #0002' })).toBeVisible()
-  await expect(page.locator('.orders-list')).toContainText('$18.00')
-  await expect(page.locator('.orders-list')).toContainText('$56.00')
+  await expect(page.locator('.orders-list')).toContainText('₹18.00')
+  await expect(page.locator('.orders-list')).toContainText('₹56.00')
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled()
 })
@@ -171,14 +186,12 @@ test('new Keycloak users finish local registration', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByText('Welcome, alex.')).toBeVisible()
-  await page.getByLabel('Your name').fill('New member')
-  await page.getByLabel('Home store').selectOption('1')
-  await page.getByRole('button', { name: 'Start exploring', exact: true }).click()
-  await expect(page.getByText('Hi, New member')).toBeVisible()
+  await page.getByRole('button', { name: 'Create customer account' }).click()
+  await expect(page.getByText('Hi, Alex')).toBeVisible()
   await expect(page.getByText('Welcome, alex.')).not.toBeVisible()
 })
 
-test('administrators can create products and stores', async ({ page }) => {
+test('administrators can create products and brands', async ({ page }) => {
   await fixture(page, 'Admin')
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -189,10 +202,10 @@ test('administrators can create products and stores', async ({ page }) => {
   await page.getByLabel('Price', { exact: true }).fill('12')
   await page.getByRole('button', { name: 'Save product', exact: true }).click()
   await expect(page.getByRole('cell', { name: 'Field notebook', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Stores', exact: true }).click()
-  await page.getByLabel('New store name').fill('workshop')
-  await page.getByRole('button', { name: 'Create store', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'workshop', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Brands', exact: true }).click()
+  await page.getByLabel('New brand name').fill('workshop')
+  await page.getByRole('button', { name: 'Create brand', exact: true }).click()
+  await expect(page.locator('p').filter({ hasText: 'Manager accounts for workshop' })).toBeVisible()
 })
 
 test('mobile layout fits the viewport and the bag is keyboard accessible', async ({ page }) => {

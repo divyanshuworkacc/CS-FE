@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, LogOut, Search, ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Store, X } from 'lucide-react'
 import { useAuth } from './auth/AuthProvider'
 import { useCollection } from './hooks/useCollection'
@@ -36,6 +36,7 @@ export default function App() {
   const productFilters = {
     ...(view === 'shop' && backendQuery ? { search: backendQuery } : {}),
     ...(view === 'shop' && category !== 'All finds' ? { category } : {}),
+    ...(view === 'shop' ? { sort } : {}),
   }
   const filterQuery = new URLSearchParams(productFilters).toString()
   const productPath = view === 'shop'
@@ -44,7 +45,10 @@ export default function App() {
     : view === 'manage' && tenant ? tenantPath(tenant.name, 'products') : null
   const products = useCollection<Product>(view === 'shop' || view === 'manage' ? productPath : null, false, revision,
     view === 'shop' ? { skip: productPage * PRODUCT_PAGE_SIZE, limit: PRODUCT_PAGE_SIZE } : undefined)
-  const favourites = useCollection<Product>(auth.profile ? '/favourites' : null, true, revision)
+  const favouritePath = auth.profile
+    ? view === 'favourites' ? `/favourites?${new URLSearchParams({ sort })}` : '/favourites'
+    : null
+  const favourites = useCollection<Product>(favouritePath, true, revision)
   const manager = auth.profile?.role === 'Admin' || auth.profile?.role === 'Tenant'
   const items = cart
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -62,14 +66,8 @@ export default function App() {
 
   const source = view === 'favourites' ? favourites.data.filter(product => product.tenant_id === tenant?.id) : products.data
   const categories = ['All finds', ...new Set(source.map(product => product.category).sort())]
-  const visible = useMemo(() => {
-    const list = source.filter(product => (category === 'All finds' || product.category === category)
-      && (view !== 'favourites' || `${product.name} ${product.category}`.toLowerCase().includes(query.toLowerCase().trim())))
-    if (sort === 'price-low') list.sort((a, b) => a.price - b.price)
-    if (sort === 'price-high') list.sort((a, b) => b.price - a.price)
-    if (sort === 'name') list.sort((a, b) => a.name.localeCompare(b.name))
-    return list
-  }, [source, category, query, sort, view])
+  const visible = source.filter(product => (category === 'All finds' || product.category === category)
+    && (view !== 'favourites' || `${product.name} ${product.category}`.toLowerCase().includes(query.toLowerCase().trim())))
 
   function changeTenant(id: number) { setTenantId(id); setProductPage(0); setCartOpen(false); setActionError('') }
   function replaceItems(next: CartItem[]) { setCart(next) }
@@ -132,7 +130,7 @@ export default function App() {
                 <span className="collection-count">{view === 'shop' ? `Page ${productPage + 1} · ${source.length} shown` : `${source.length} ${source.length === 1 ? 'find' : 'finds'} to explore`} <ArrowDown size={14} /></span>
               </SectionHeading>
                 <div className="collection-tools"><div className="search-field"><Search size={18} /><input aria-label="Search products" placeholder="Search for something good…" value={query} onChange={event => { setQuery(event.target.value); setProductPage(0) }} />{query && <button aria-label="Clear search" onClick={() => { setQuery(''); setProductPage(0) }}><X size={16} /></button>}</div>
-                  <label className="sort-field"><SlidersHorizontal size={16} /><span className="sr-only">Sort products</span><select aria-label="Sort products" value={sort} onChange={event => setSort(event.target.value)}><option value="featured">Featured finds</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A to Z</option></select><ChevronDown size={14} /></label></div>
+                  <label className="sort-field"><SlidersHorizontal size={16} /><span className="sr-only">Sort products</span><select aria-label="Sort products" value={sort} onChange={event => { setSort(event.target.value); setProductPage(0) }}><option value="featured">Featured finds</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A to Z</option></select><ChevronDown size={14} /></label></div>
                 <div className="category-tabs" aria-label="Product categories">{categories.map(item => <button key={item} className={category === item ? 'active' : ''} onClick={() => { setCategory(item); setProductPage(0) }} aria-pressed={category === item}>{item === 'All finds' && <Sparkles size={14} />}{item}</button>)}</div>
                 {collectionError ? <ErrorNotice retry={refresh}>{collectionError}</ErrorNotice> : loading ? <Loading />
                   : visible.length ? <div className="product-grid">{visible.map(product => <ProductCard key={product.id} product={product} tenantName={allStores ? tenants.data.find(item => item.id === product.tenant_id)?.name : undefined} favourite={favourites.data.some(item => item.id === product.id)} inCart={cart.find(item => item.product.id === product.id)?.quantity || 0} favouriteBusy={favouriteBusy !== null || auth.checking}
