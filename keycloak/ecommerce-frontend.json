@@ -1,0 +1,11 @@
+{
+  "clientId": "ecommerce-frontend", "name": "Common storefront",
+  "description": "Local React storefront using Authorization Code with PKCE",
+  "enabled": true, "protocol": "openid-connect", "publicClient": true,
+  "standardFlowEnabled": true, "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false, "serviceAccountsEnabled": false,
+  "rootUrl": "http://localhost:5173", "baseUrl": "http://localhost:5173/",
+  "redirectUris": ["http://localhost:5173/*"], "webOrigins": ["http://localhost:5173"],
+  "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "http://localhost:5173/*" },
+  "defaultClientScopes": ["web-origins", "profile", "email", "roles"]
+}
