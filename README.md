@@ -1,91 +1,102 @@
 # E-commerce frontend
 
-React, TypeScript, Vite, Tailwind CSS, and the Keycloak JavaScript adapter.
+Built with React, TypeScript, Vite, Tailwind CSS, and the Keycloak JavaScript
+adapter. The frontend connects to a compatible e-commerce API and Keycloak.
 
-## Run it
+## Prerequisites
 
-The local environment is configured for Keycloak on port 8080, FastAPI on port
-9000, and Vite on port 5173. Start Keycloak in one terminal if it is not already
-running:
+- Node.js 22.12 or newer and npm.
+- A compatible backend API. The default local proxy target is
+  `http://localhost:9000`.
+- A Keycloak server with a realm and public frontend client configured for
+  Authorization Code flow with PKCE S256.
 
-~~~bash
-cd /home/bhcp0043/Desktop/assignment-keycloak
-python start.py
-~~~
+## Setup
 
-Start the backend in a second terminal:
+From the repository directory, install dependencies and create a local
+environment file:
 
-~~~bash
-cd /home/bhcp0043/Desktop/assignment
-../assignment-keycloak/start-backend.sh
-~~~
+```bash
+npm install
+cp .env.example .env.local
+```
 
-Then start the frontend in a third terminal:
+Edit `.env.local` to match your backend and Keycloak configuration. The example
+values use `http://localhost:5173` for the frontend,
+`http://localhost:8080` for Keycloak, and `http://127.0.0.1:9000` for the API.
+Update `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`,
+and `API_PROXY_TARGET` to match your environment. `VITE_API_BASE_URL` defaults
+to `/api`, which the Vite server proxies to the API target.
 
-~~~bash
-cd /home/bhcp0043/Desktop/assignment-frontend
+Start the backend and Keycloak using their respective project instructions,
+then start the frontend:
+
+```bash
 npm run dev
-~~~
+```
 
-Open http://localhost:5173. The frontend proxies API requests to
-http://127.0.0.1:9000 and signs in through http://localhost:8080. Do not start a
-second Keycloak process if one is already listening on port 8080. The client
-allows the http://localhost:5173/* redirect and http://localhost:5173 web origin.
-Keep using localhost in the browser; 127.0.0.1 is a different redirect origin.
+Open the URL printed by Vite (by default, `http://localhost:5173`). The Keycloak
+client must allow that origin as a web origin and include a matching redirect
+URI, such as `http://localhost:5173/*`. Use the same hostname consistently in
+the browser and Keycloak configuration; `localhost` and `127.0.0.1` are
+different origins.
 
-The example configuration uses backend port 9000 and Keycloak port 8080. All
-VITE_* values are public browser settings; never put a client secret or
-Keycloak service account password in this frontend.
+The Vite development server proxies requests from `/api` to `API_PROXY_TARGET`
+and removes the `/api` prefix. The browser-facing `VITE_*` values are public
+settings; never put a client secret or service-account password in this
+frontend. Keep local configuration in `.env.local`; do not commit credentials
+or machine-specific environment files.
+
+## Authentication and backend
+
+The frontend and backend must use the same Keycloak realm. The frontend uses
+the Keycloak JavaScript adapter with `check-sso`; if the browser blocks silent
+SSO in a hidden iframe, the adapter can fall back to a regular redirect.
+
+The optional example client configuration is in
+`keycloak/ecommerce-frontend.json`. Review its URLs and redirect settings for
+your environment before importing it. The backend is responsible for
+authorizing requests and enforcing user roles; frontend visibility is not a
+security boundary. If the backend uses a Keycloak service account for manager
+account administration, configure that service account in the backend, never
+in this frontend.
 
 ## Accounts and permissions
 
-The same Keycloak login works throughout the application. The backend profile
-sets the role and, for a brand manager, the assigned brand.
+The same Keycloak login is used throughout the application. The backend profile
+determines the user's role and, for a brand manager, their assigned brand.
 
-- A customer signs up or logs in through Keycloak, then creates a customer
-  profile in the frontend. The backend takes their username and name from the
-  Keycloak token; customers do not select a brand. Set first and last name in
-  the Keycloak user profile before profile creation.
-- A platform admin creates brands and adds a manager login to each brand.
-  Keycloak creates that username/password, and the backend assigns the manager
-  to that brand.
-- A brand manager edits products and inventory for their assigned brand. They
-  can still shop from any brand with the same account.
-- Customers, admins, and managers can each place orders. Every signed-in user
-  sees their own order history across all brands.
-
-The frontend sends the current Keycloak access token as a bearer token for
-protected API calls. The backend enforces permissions even if a user manually
-changes frontend URLs or requests.
+- A customer signs in, then creates a customer profile in the frontend. The
+  backend reads the username and name from the Keycloak token; set first and
+  last name in the Keycloak user profile before creating the local profile.
+- A platform admin creates brands and adds a manager login to each brand. The
+  backend assigns the manager to that brand.
+- A brand manager manages products and inventory for their assigned brand and
+  can also shop from any brand.
+- Customers, admins, and managers can place orders. Each signed-in user sees
+  their own order history across brands.
 
 ## Features
 
-- Browse all brands' product catalogs, search and filter products, save
-  favourites, and keep a separate bag for each brand.
-- Place orders without an online payment step; the bag rechecks available
-  quantity and prices before checkout.
-- View purchase history across brands.
-- Admin: create/delete brands, add/update/revoke manager accounts, and manage
-  products.
-- Brand manager: manage products and quantity for their own brand.
+- Browse store catalogs, search and filter products, save favourites, and keep
+  a separate bag for each store.
+- Place orders without online payment; the bag rechecks availability and prices
+  before checkout.
+- View purchase history across stores.
+- Admin: create and delete stores, add/update/revoke manager accounts, and
+  manage products.
+- Brand manager: manage products and inventory for their assigned store.
 
 The API does not provide product photos, currency, payment, or order dates.
-Product art is generated by the frontend; display currency defaults to USD and
-can be changed with VITE_CURRENCY.
+Product artwork is generated by the frontend. Display currency defaults to USD
+and can be changed with `VITE_CURRENCY`.
 
-## Useful commands
+## Scripts
 
-~~~bash
+```bash
+npm run dev
 npm run build
 npm test
+npm run test:browser
 npm run preview
-~~~
-
-The public Keycloak client is in keycloak/ecommerce-frontend.json. It should
-use Authorization Code flow with PKCE S256 and allow the
-http://localhost:5173/* redirect. The frontend and backend must use the same
-Keycloak realm. The JavaScript adapter uses `check-sso` and falls back to a
-regular redirect when a browser blocks silent SSO in a hidden iframe. See the backend README for service-account setup used to
-create and update manager credentials. Until the backend service account is
-configured with its secret, admin-created manager logins will show the
-backend's setup error.
+```
