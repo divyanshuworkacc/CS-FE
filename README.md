@@ -79,9 +79,9 @@ determines the user's role and, for a brand manager, their assigned brand.
 ## Features
 
 - Browse store catalogs, search and filter products, save favourites, and keep
-  a separate bag for each store.
-- Place orders without online payment; the bag rechecks availability and prices
-  before checkout.
+  one marketplace bag across every brand.
+- Check out products from multiple brands together; the backend creates the
+  per-brand orders atomically after rechecking availability and prices.
 - View purchase history across stores.
 - Admin: create and delete stores, add/update/revoke manager accounts, and
   manage products.

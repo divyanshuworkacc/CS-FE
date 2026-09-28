@@ -8,5 +8,8 @@ export interface Order {
   id: number; total_quantity: number; amount: number; user_id: number; tenant_id: number;
   order_items: { id: number; quantity: number; product_id: number; order_id: number }[]
 }
+export interface MarketplaceOrderCreate {
+  order_items: { product_id: number; quantity: number }[]
+}
 export interface CartItem { product: Product; quantity: number }
 export type View = 'shop' | 'favourites' | 'orders' | 'manage'

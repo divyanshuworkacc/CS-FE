@@ -20,7 +20,8 @@ describe('shopping bag', () => {
     expect(cartTotal(items)).toBe(50)
   })
   it('does not merge different products or stores', () => {
-    const items = addToCart(addToCart([], product), { ...product, id: 2, tenant_id: 2 })
+    const items = addToCart(addToCart([], product), { ...product, id: 2, tenant_id: 2, price: 30 })
     expect(items).toHaveLength(2)
+    expect(cartTotal(items)).toBe(55)
   })
 })

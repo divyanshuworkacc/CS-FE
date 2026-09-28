@@ -75,14 +75,25 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
       const product = products.find(item => item.id === Number(path.split('/').pop()))!
       favourites = favourites.some(item => item.id === product.id) ? favourites.filter(item => item.id !== product.id) : [...favourites, product]
       await route.fulfill({ json: product })
-    } else if (path === '/acme/orders') {
+    } else if (path === '/orders') {
       if (method === 'POST') {
         const body = request.postDataJSON()
         const entries = body.order_items as { quantity: number; product_id: number }[]
-        const order = { id: 1, user_id: 1, total_quantity: entries.reduce((sum, item) => sum + item.quantity, 0),
-          amount: entries.reduce((sum, item) => sum + item.quantity * products.find(product => product.id === item.product_id)!.price, 0),
-          order_items: entries.map((item, i) => ({ ...item, id: i + 1, order_id: 1 })) }
-        orders.push(order); await route.fulfill({ json: order })
+        const grouped = new Map<number, typeof entries>()
+        for (const item of entries) {
+          const product = products.find(entry => entry.id === item.product_id)!
+          grouped.set(product.tenant_id, [...(grouped.get(product.tenant_id) || []), item])
+          product.quantity -= item.quantity
+        }
+        let nextOrderId = orders.length
+        const created = [...grouped.entries()].map(([tenant_id, items]) => {
+          const id = ++nextOrderId
+          return { id, user_id: 1, tenant_id,
+            total_quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+            amount: items.reduce((sum, item) => sum + item.quantity * products.find(product => product.id === item.product_id)!.price, 0),
+            order_items: items.map((item, i) => ({ ...item, id: i + 1, order_id: id })) }
+        })
+        orders.push(...created); await route.fulfill({ json: created })
       } else await route.fulfill({ json: orders })
     } else if (path === '/roles') { await route.fulfill({ json: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Tenant' }, { id: 3, name: 'User' }] }) }
     else if (path === '/acme/users') { await route.fulfill({ json: [profile] }) }
@@ -95,9 +106,9 @@ test('browses, filters, sorts, and preserves the bag across reloads', async ({ p
   await fixture(page)
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled()
-  await expect(page.locator('.product-card')).toHaveCount(4)
+  await expect(page.locator('.product-card')).toHaveCount(5)
   await page.getByRole('button', { name: 'Home', exact: true }).click()
-  await expect(page.locator('.product-card')).toHaveCount(1)
+  await expect(page.locator('.product-card')).toHaveCount(2)
   await page.getByRole('button', { name: 'All finds', exact: true }).click()
   await page.getByLabel('Search products').fill('canvas')
   await expect(page.locator('.product-card')).toHaveCount(1)
@@ -111,15 +122,19 @@ test('browses, filters, sorts, and preserves the bag across reloads', async ({ p
   await expect(page.getByRole('dialog')).toContainText('$24.00')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).not.toBeVisible()
-  await page.getByLabel('Current store').selectOption('2')
-  await expect(page.getByText('Good things are on their way.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Shopping bag, 0 items' })).toBeVisible()
+  await page.getByLabel('Filter products by brand').selectOption('2')
+  await expect(page.locator('.product-card')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Shopping bag, 1 items' })).toBeVisible()
+  await page.getByRole('button', { name: 'Add Studio linen throw to bag', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Shopping bag, 2 items' })).toBeVisible()
+  await page.getByRole('button', { name: 'Shopping bag, 2 items' }).click()
+  await expect(page.getByRole('dialog')).toContainText('acme')
+  await expect(page.getByRole('dialog')).toContainText('studio')
 })
 
 test('discovers and searches products across all brands', async ({ page }) => {
   await fixture(page)
   await page.goto('/')
-  await page.getByLabel('Current store').selectOption('all')
   await expect(page.locator('.product-card')).toHaveCount(5)
   await expect(page.locator('.product-category').filter({ hasText: 'studio' })).toHaveCount(1)
   await page.getByLabel('Search products').fill('linen')
@@ -127,7 +142,7 @@ test('discovers and searches products across all brands', async ({ page }) => {
   await expect(page.locator('.product-card')).toContainText('Studio linen throw')
 })
 
-test('uses PKCE login, saves favourites, places an order, and signs out', async ({ page }) => {
+test('uses PKCE login and checks out items from multiple brands together', async ({ page }) => {
   const state = await fixture(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -138,10 +153,15 @@ test('uses PKCE login, saves favourites, places an order, and signs out', async 
   await page.getByRole('button', { name: 'Save Sunday ceramic mug to favourites' }).click()
   await expect(page.getByRole('button', { name: 'Remove Sunday ceramic mug from favourites' })).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'Add Sunday ceramic mug to bag', exact: true }).click()
-  await page.getByRole('button', { name: 'Shopping bag, 1 items' }).click()
+  await page.getByRole('button', { name: 'Add Studio linen throw to bag', exact: true }).click()
+  await page.getByRole('button', { name: 'Shopping bag, 2 items' }).click()
+  await expect(page.getByRole('dialog')).toContainText('acme')
+  await expect(page.getByRole('dialog')).toContainText('studio')
   await page.getByRole('button', { name: 'Place order', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Order #0001' })).toBeVisible()
-  await expect(page.locator('.order-card')).toContainText('$18.00')
+  await expect(page.getByRole('heading', { name: 'Order #0002' })).toBeVisible()
+  await expect(page.locator('.orders-list')).toContainText('$18.00')
+  await expect(page.locator('.orders-list')).toContainText('$56.00')
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled()
 })
@@ -179,7 +199,7 @@ test('mobile layout fits the viewport and the bag is keyboard accessible', async
   await fixture(page)
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
-  await expect(page.locator('.product-card')).toHaveCount(4)
+  await expect(page.locator('.product-card')).toHaveCount(5)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   await page.screenshot({ path: 'test-results/mobile-storefront.png', fullPage: true })
   await page.getByRole('button', { name: 'Add Sunday ceramic mug to bag', exact: true }).click()
@@ -192,7 +212,7 @@ test('mobile layout fits the viewport and the bag is keyboard accessible', async
 test('desktop storefront renders and handles an API outage', async ({ page }) => {
   await fixture(page)
   await page.goto('/')
-  await expect(page.locator('.product-card')).toHaveCount(4)
+  await expect(page.locator('.product-card')).toHaveCount(5)
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled()
   await page.screenshot({ path: 'test-results/desktop-storefront.png', fullPage: true })
   await page.route('**/api/tenants?**', route => route.fulfill({ status: 500, body: 'Internal Server Error' }))

@@ -18,7 +18,7 @@ const PRODUCT_PAGE_SIZE = 8
 export default function App() {
   const auth = useAuth()
   const [view, setView] = useState<View>('shop')
-  const [tenantId, setTenantId] = useState<number | 'all' | null>(null)
+  const [tenantId, setTenantId] = useState<number | 'all' | null>('all')
   const [revision, setRevision] = useState(0)
   const [query, setQuery] = useState('')
   const [backendQuery, setBackendQuery] = useState('')
@@ -46,7 +46,7 @@ export default function App() {
     view === 'shop' ? { skip: productPage * PRODUCT_PAGE_SIZE, limit: PRODUCT_PAGE_SIZE } : undefined)
   const favourites = useCollection<Product>(auth.profile ? '/favourites' : null, true, revision)
   const manager = auth.profile?.role === 'Admin' || auth.profile?.role === 'Tenant'
-  const items = cart.filter(item => !allStores && item.product.tenant_id === tenant?.id)
+  const items = cart
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0)
   const refresh = () => setRevision(value => value + 1)
   useEffect(() => {
@@ -72,9 +72,8 @@ export default function App() {
   }, [source, category, query, sort, view])
 
   function changeTenant(id: number) { setTenantId(id); setProductPage(0); setCartOpen(false); setActionError('') }
-  function replaceItems(next: CartItem[]) { setCart(previous => [...previous.filter(item => item.product.tenant_id !== tenant?.id), ...next]) }
+  function replaceItems(next: CartItem[]) { setCart(next) }
   function add(product: Product) {
-    if (allStores) setTenantId(product.tenant_id)
     setCart(previous => addToCart(previous, product)); setNotice(`${product.name} added to your bag`)
   }
   async function toggleFavourite(product: Product) {
@@ -106,7 +105,7 @@ export default function App() {
         <button key={key} onClick={() => navigate(key)} className={view === key ? 'active' : ''}>{label}</button>)}</nav>
       <div className="header-actions">{auth.authenticated ? <><span className="account-name" title={auth.profile?.role}>Hi, {auth.profile?.name || auth.username}</span><button className="icon-button" onClick={() => void auth.logout()} aria-label="Sign out"><LogOut size={19} /></button></>
         : <button className="login-button" onClick={() => void auth.login()} disabled={auth.checking}>{auth.checking ? 'Connecting…' : 'Sign in'}<ArrowUpRight size={15} /></button>}
-        <span className="header-divider" /><button className="bag-button" onClick={() => setCartOpen(true)} disabled={!tenant} aria-label={`Shopping bag, ${cartCount} items`}><ShoppingBag size={20} /><span className="hidden sm:inline">Bag</span><span className="bag-count">{cartCount}</span></button>
+        <span className="header-divider" /><button className="bag-button" onClick={() => setCartOpen(true)} aria-label={`Shopping bag, ${cartCount} items`}><ShoppingBag size={20} /><span className="hidden sm:inline">Bag</span><span className="bag-count">{cartCount}</span></button>
       </div></div>
       <nav className="mobile-nav" aria-label="Mobile navigation"><button className={view === 'shop' ? 'active' : ''} onClick={() => navigate('shop')}>Discover</button><button className={view === 'favourites' ? 'active' : ''} onClick={() => navigate('favourites')}>Favourites</button><button className={view === 'orders' ? 'active' : ''} onClick={() => navigate('orders')}>Orders</button>{manager && <button className={view === 'manage' ? 'active' : ''} onClick={() => navigate('manage')}>Manage</button>}</nav>
     </header>
@@ -118,8 +117,8 @@ export default function App() {
         <h1 className="text-3xl font-semibold">Products from every brand</h1>
         <p className="mt-2 text-stone-600">Browse one brand or discover products from every store.</p>
       </section>}
-      <div className="store-context"><div className="flex items-center gap-2"><span className="status-dot" /><span>YOUR CORNER OF COMMON</span></div>
-        <label className="store-switch"><Store size={16} /><span className="sr-only">Current store</span><select aria-label="Current store" value={allStores ? 'all' : tenant?.id ?? ''} onChange={event => {
+      <div className="store-context"><div className="flex items-center gap-2"><span className="status-dot" /><span>FILTER PRODUCTS BY BRAND</span></div>
+        <label className="store-switch"><Store size={16} /><span className="sr-only">Brand filter</span><select aria-label="Filter products by brand" value={allStores ? 'all' : tenant?.id ?? ''} onChange={event => {
           if (event.target.value === 'all') { setTenantId('all'); setProductPage(0); setCartOpen(false); setActionError('') }
           else changeTenant(Number(event.target.value))
         }} disabled={!tenants.data.length || (view === 'manage' && auth.profile?.role === 'Tenant')}>
@@ -151,6 +150,10 @@ export default function App() {
     </main>
     <footer className="footer"><button className="wordmark" onClick={() => navigate('shop')}>common<span>.</span></button><p>Good finds. Great everyday.</p><span>Made for the way you live.</span></footer>
     {notice && <div className="toast" role="status"><Check size={17} />{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}><X size={15} /></button></div>}
-    {cartOpen && tenant && <CartDrawer tenant={tenant} items={items} replace={replaceItems} close={() => setCartOpen(false)} ordered={order => { setCartOpen(false); setView('orders'); setNotice(`Order #${order.id} placed. Thank you!`); refresh() }} />}
+    {cartOpen && <CartDrawer tenants={tenants.data} items={items} replace={replaceItems} close={() => setCartOpen(false)} ordered={orders => {
+      setCartOpen(false); navigate('orders')
+      setNotice(orders.length === 1 ? `Order #${orders[0].id} placed. Thank you!` : `Checkout complete: ${orders.length} brand orders placed. Thank you!`)
+      refresh()
+    }} />}
   </div>
 }
