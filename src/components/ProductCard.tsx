@@ -16,8 +16,8 @@ export function ProductArt({ product, small = false }: { product: Product; small
   </div>
 }
 
-export function ProductCard({ product, favourite, inCart, favouriteBusy, onFavourite, onAdd }: {
-  product: Product; favourite: boolean; inCart: number; favouriteBusy: boolean;
+export function ProductCard({ product, tenantName, favourite, inCart, favouriteBusy, onFavourite, onAdd }: {
+  product: Product; tenantName?: string; favourite: boolean; inCart: number; favouriteBusy: boolean;
   onFavourite: () => void; onAdd: () => void
 }) {
   const maximum = purchasableQuantity(product)
@@ -29,7 +29,7 @@ export function ProductCard({ product, favourite, inCart, favouriteBusy, onFavou
       </button>
       {maximum === 0 && <span className="stock-badge">Unavailable</span>}
     </div>
-    <div className="product-info"><div><p className="product-category">{product.category}</p><h3>{product.name}</h3></div>
+    <div className="product-info"><div><p className="product-category">{product.category}{tenantName && <span> · {tenantName}</span>}</p><h3>{product.name}</h3></div>
       <span className="product-price">{money(product.price)}</span>
     </div>
     <div className="product-bottom"><span>{maximum ? `${maximum} available to order` : 'Check back soon'}</span>

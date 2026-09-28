@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./keycloak', () => ({ accessToken: vi.fn(async () => 'test-token') }))
-import { allPages, api, ApiError, tenantPath } from './api'
+import { allPages, api, ApiError, fetchPage, tenantPath } from './api'
 import { accessToken } from './keycloak'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks() })
@@ -36,7 +36,24 @@ describe('API client', () => {
     expect(await allPages('/tenants')).toHaveLength(101)
     expect(fetch.mock.calls[1][0]).toContain('skip=100&limit=100')
   })
+  it('preserves search while fetching paginated results', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([{ id: 1 }])))
+    vi.stubGlobal('fetch', fetch)
+    await allPages('/Acme/products?search=blue+mug')
+    expect(fetch.mock.calls[0][0]).toContain('/Acme/products?search=blue+mug&skip=0&limit=100')
+  })
+  it('fetches one requested page and preserves search parameters', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([{ id: 11 }])))
+    vi.stubGlobal('fetch', fetch)
+    await fetchPage('/Acme/products?search=blue+mug', 10, 11)
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(fetch.mock.calls[0][0]).toContain('/Acme/products?search=blue+mug&skip=10&limit=11')
+  })
   it('encodes tenant names as one path segment', () => {
     expect(tenantPath('Home & Co', 'products')).toBe('/Home%20%26%20Co/products')
+  })
+  it('encodes product search as a query parameter', () => {
+    expect(tenantPath('Home & Co', 'products', { search: 'blue mug' }))
+      .toBe('/Home%20%26%20Co/products?search=blue+mug')
   })
 })

@@ -14,6 +14,7 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
     { id: 2, name: 'Sunday ceramic mug', category: 'Home', price: 18, quantity: 5, tenant_id: 1 },
     { id: 3, name: 'Soft cotton essential', category: 'Apparel', price: 42, quantity: 7, tenant_id: 1 },
     { id: 4, name: 'Studio headphones', category: 'Electronics', price: 95, quantity: 1, tenant_id: 1 },
+    { id: 6, name: 'Studio linen throw', category: 'Home', price: 56, quantity: 4, tenant_id: 2 },
   ]
   const orders: unknown[] = []
   const profile = { id: 1, name: 'Alex', username: 'alex', tenant_id: 1, role_id: role === 'Admin' ? 1 : 3, role, tenant_name: 'acme' }
@@ -45,21 +46,30 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
     const request = route.request()
     const path = new URL(request.url()).pathname.replace('/api', '')
     const method = request.method()
-    const protectedRequest = !['/tenants', '/acme/products', '/studio/products'].includes(path) || method !== 'GET'
+    const protectedRequest = !['/tenants', '/products', '/acme/products', '/studio/products'].includes(path) || method !== 'GET'
     if (protectedRequest && !request.headers().authorization?.startsWith('Bearer ')) {
       await route.fulfill({ status: 401, json: { detail: 'Not authenticated' } }); return
     }
     if (path === '/tenants') {
       if (method === 'POST') tenants.push({ id: 3, ...request.postDataJSON() })
       await route.fulfill({ json: tenants })
+    } else if (path === '/products') {
+      const params = new URL(request.url()).searchParams
+      const search = params.get('search')?.toLowerCase()
+      const category = params.get('category')
+      const skip = Number(params.get('skip') || 0)
+      const limit = Number(params.get('limit') || 10)
+      const matches = products.filter(product => (!search || product.name.toLowerCase().includes(search))
+        && (!category || product.category === category))
+      await route.fulfill({ json: matches.slice(skip, skip + limit) })
     } else if (path === '/users/me') {
       await route.fulfill(registered ? { json: profile } : { status: 404, json: { detail: 'Authenticated with Keycloak but no matching local account. Call POST /users to complete registration.' } })
     } else if (path === '/users' && method === 'POST') {
       registered = true; Object.assign(profile, request.postDataJSON()); await route.fulfill({ json: profile })
     } else if (path === '/acme/products') {
       if (method === 'POST') { const product = { id: 5, tenant_id: 1, ...request.postDataJSON() }; products.push(product); await route.fulfill({ json: product }) }
-      else await route.fulfill({ json: products })
-    } else if (path === '/studio/products') { await route.fulfill({ json: [] }) }
+      else await route.fulfill({ json: products.filter(product => product.tenant_id === 1) })
+    } else if (path === '/studio/products') { await route.fulfill({ json: products.filter(product => product.tenant_id === 2) }) }
     else if (path === '/favourites') { await route.fulfill({ json: favourites }) }
     else if (path.startsWith('/favourites/') && method === 'POST') {
       const product = products.find(item => item.id === Number(path.split('/').pop()))!
@@ -104,6 +114,17 @@ test('browses, filters, sorts, and preserves the bag across reloads', async ({ p
   await page.getByLabel('Current store').selectOption('2')
   await expect(page.getByText('Good things are on their way.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Shopping bag, 0 items' })).toBeVisible()
+})
+
+test('discovers and searches products across all brands', async ({ page }) => {
+  await fixture(page)
+  await page.goto('/')
+  await page.getByLabel('Current store').selectOption('all')
+  await expect(page.locator('.product-card')).toHaveCount(5)
+  await expect(page.locator('.product-category').filter({ hasText: 'studio' })).toHaveCount(1)
+  await page.getByLabel('Search products').fill('linen')
+  await expect(page.locator('.product-card')).toHaveCount(1)
+  await expect(page.locator('.product-card')).toContainText('Studio linen throw')
 })
 
 test('uses PKCE login, saves favourites, places an order, and signs out', async ({ page }) => {

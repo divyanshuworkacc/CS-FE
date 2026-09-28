@@ -39,4 +39,12 @@ export async function allPages<T>(path: string, authenticated = false, signal?: 
     if (page.length < 100) return records
   }
 }
-export const tenantPath = (name: string, resource: string) => `/${encodeURIComponent(name)}/${resource}`
+export function fetchPage<T>(path: string, skip: number, limit: number, authenticated = false, signal?: AbortSignal): Promise<T[]> {
+  const separator = path.includes('?') ? '&' : '?'
+  return api<T[]>(`${path}${separator}skip=${skip}&limit=${limit}`, { signal }, authenticated)
+}
+export const tenantPath = (name: string, resource: string, query?: Record<string, string>) => {
+  const path = `/${encodeURIComponent(name)}/${resource}`
+  const params = new URLSearchParams(query)
+  return params.size ? `${path}?${params}` : path
+}
