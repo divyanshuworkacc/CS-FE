@@ -104,22 +104,22 @@ export default function App() {
         </select><ChevronDown size={14} /></label></div>
       {view === 'manage' && manager ? <Manage tenant={tenant} tenants={tenants.data} products={products.data} refresh={refresh} selectTenant={changeTenant} />
         : (view === 'orders' || view === 'favourites') && !auth.profile && !auth.needsProfile ? <SignInPrompt action={() => void (auth.authenticated ? auth.reloadProfile() : auth.login())} />
-        : view === 'orders' && auth.needsProfile ? <EmptyState title="Create your customer account">Use the account setup above, then your purchases will appear here.</EmptyState>
-        : view === 'orders' ? <Orders revision={revision} retry={refresh} shop={() => navigate('shop')} />
-        : <section id="collection" className="collection"><SectionHeading eyebrow={view === 'favourites' ? 'THE ONES YOU LOVE' : 'A LITTLE SOMETHING FOR YOU'} title={view === 'favourites' ? 'Good taste. Saved.' : 'Find your everyday favourites.'}>
-          <span className="collection-count">{source.length} {source.length === 1 ? 'find' : 'finds'} to explore <ArrowDown size={14} /></span>
-        </SectionHeading>
-          <div className="collection-tools"><div className="search-field"><Search size={18} /><input aria-label="Search products" placeholder="Search for something good…" value={query} onChange={event => setQuery(event.target.value)} />{query && <button aria-label="Clear search" onClick={() => setQuery('')}><X size={16} /></button>}</div>
-            <label className="sort-field"><SlidersHorizontal size={16} /><span className="sr-only">Sort products</span><select aria-label="Sort products" value={sort} onChange={event => setSort(event.target.value)}><option value="featured">Featured finds</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A to Z</option></select><ChevronDown size={14} /></label></div>
-          <div className="category-tabs" aria-label="Product categories">{categories.map(item => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'All finds' && <Sparkles size={14} />}{item}</button>)}</div>
-          {collectionError ? <ErrorNotice retry={refresh}>{collectionError}</ErrorNotice> : loading ? <Loading />
-            : visible.length ? <div className="product-grid">{visible.map(product => <ProductCard key={product.id} product={product} favourite={favourites.data.some(item => item.id === product.id)} inCart={cart.find(item => item.product.id === product.id)?.quantity || 0} favouriteBusy={favouriteBusy !== null || auth.checking}
-              onFavourite={() => void toggleFavourite(product)} onAdd={() => { if (purchasableQuantity(product)) add(product) }} />)}</div>
-            : <EmptyState title={query || category !== 'All finds' ? 'No finds just yet' : view === 'favourites' ? 'A place for your favourites' : 'Good things are on their way.'}
-              action={query || category !== 'All finds' ? <button className="button-secondary mt-5" onClick={() => { setQuery(''); setCategory('All finds') }}>Clear filters</button> : manager && view === 'shop' ? <button className="button-primary mt-5" onClick={() => navigate('manage')}>Stock your store <ArrowRight size={17} /></button> : undefined}>
-              {query || category !== 'All finds' ? 'Try a different search or explore another category.' : view === 'favourites' ? 'Tap the heart on a product to keep it here. Favourites are shown for the selected store.' : tenant ? `${tenant.name} is getting its collection ready. Check back soon to discover something new.` : 'The first store is getting ready. An administrator can create it from Manage store.'}
-            </EmptyState>}
-        </section>}
+          : view === 'orders' && auth.needsProfile ? <EmptyState title="Create your customer account">Use the account setup above, then your purchases will appear here.</EmptyState>
+            : view === 'orders' ? <Orders revision={revision} retry={refresh} shop={() => navigate('shop')} />
+              : <section id="collection" className="collection"><SectionHeading eyebrow={view === 'favourites' ? 'THE ONES YOU LOVE' : 'A LITTLE SOMETHING FOR YOU'} title={view === 'favourites' ? 'Good taste. Saved.' : 'Find your everyday favourites.'}>
+                <span className="collection-count">{source.length} {source.length === 1 ? 'find' : 'finds'} to explore <ArrowDown size={14} /></span>
+              </SectionHeading>
+                <div className="collection-tools"><div className="search-field"><Search size={18} /><input aria-label="Search products" placeholder="Search for something good…" value={query} onChange={event => setQuery(event.target.value)} />{query && <button aria-label="Clear search" onClick={() => setQuery('')}><X size={16} /></button>}</div>
+                  <label className="sort-field"><SlidersHorizontal size={16} /><span className="sr-only">Sort products</span><select aria-label="Sort products" value={sort} onChange={event => setSort(event.target.value)}><option value="featured">Featured finds</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A to Z</option></select><ChevronDown size={14} /></label></div>
+                <div className="category-tabs" aria-label="Product categories">{categories.map(item => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'All finds' && <Sparkles size={14} />}{item}</button>)}</div>
+                {collectionError ? <ErrorNotice retry={refresh}>{collectionError}</ErrorNotice> : loading ? <Loading />
+                  : visible.length ? <div className="product-grid">{visible.map(product => <ProductCard key={product.id} product={product} favourite={favourites.data.some(item => item.id === product.id)} inCart={cart.find(item => item.product.id === product.id)?.quantity || 0} favouriteBusy={favouriteBusy !== null || auth.checking}
+                    onFavourite={() => void toggleFavourite(product)} onAdd={() => { if (purchasableQuantity(product)) add(product) }} />)}</div>
+                    : <EmptyState title={query || category !== 'All finds' ? 'No finds just yet' : view === 'favourites' ? 'A place for your favourites' : 'Good things are on their way.'}
+                      action={query || category !== 'All finds' ? <button className="button-secondary mt-5" onClick={() => { setQuery(''); setCategory('All finds') }}>Clear filters</button> : manager && view === 'shop' ? <button className="button-primary mt-5" onClick={() => navigate('manage')}>Stock your store <ArrowRight size={17} /></button> : undefined}>
+                      {query || category !== 'All finds' ? 'Try a different search or explore another category.' : view === 'favourites' ? 'Tap the heart on a product to keep it here. Favourites are shown for the selected store.' : tenant ? `${tenant.name} is getting its collection ready. Check back soon to discover something new.` : 'The first store is getting ready. An administrator can create it from Manage store.'}
+                    </EmptyState>}
+              </section>}
     </main>
     <footer className="footer"><button className="wordmark" onClick={() => navigate('shop')}>common<span>.</span></button><p>Good finds. Great everyday.</p><span>Made for the way you live.</span></footer>
     {notice && <div className="toast" role="status"><Check size={17} />{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}><X size={15} /></button></div>}

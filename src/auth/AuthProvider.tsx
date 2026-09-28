@@ -9,6 +9,7 @@ interface AuthState {
   login: () => Promise<void>; logout: () => Promise<void>; reloadProfile: () => Promise<void>
 }
 const Context = createContext<AuthState | null>(null)
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false)
   const [checking, setChecking] = useState(true)
@@ -50,8 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { await keycloak.logout({ redirectUri: `${window.location.origin}/` }) }
     catch { setError('Could not sign out. Please try again.') }
   }
-  return <Context.Provider value={{ authenticated, checking, profile, needsProfile, error,
-    username: keycloak.tokenParsed?.preferred_username || '', login, logout, reloadProfile }}>
+  return <Context.Provider value={{
+    authenticated, checking, profile, needsProfile, error,
+    username: keycloak.tokenParsed?.preferred_username || '', login, logout, reloadProfile
+  }}>
     {children}
   </Context.Provider>
 }
