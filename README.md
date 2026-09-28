@@ -1,7 +1,6 @@
 # E-commerce frontend
 
 React, TypeScript, Vite, Tailwind CSS, and the Keycloak JavaScript adapter.
-The frontend uses the API in /home/bhcp0043/Desktop/assignment.
 
 ## Run it
 
