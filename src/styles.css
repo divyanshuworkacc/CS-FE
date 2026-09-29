@@ -104,6 +104,7 @@ select { appearance: none; }
 .art-caption { position: absolute; bottom: 17px; font-size: 6px; letter-spacing: .18em; opacity: .55; }
 .favourite-button { position: absolute; right: 12px; top: 12px; width: 31px; height: 31px; border-radius: 50%; background: #ffffffb5; display: grid; place-items: center; color: #737b6b; }
 .favourite-button.saved { color: #ae694f; }
+.favourite-error { position: absolute; z-index: 2; top: 49px; right: 12px; max-width: 190px; padding: 6px 8px; border-radius: 3px; background: #fff; color: #9a3f32; box-shadow: 0 2px 8px #0002; font-size: 9px; line-height: 1.4; }
 .stock-badge { position: absolute; top: 16px; left: 12px; background: #fff9; border-radius: 3px; padding: 4px 7px; font-size: 8px; }
 .product-info { padding-top: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .product-category { text-transform: uppercase; font-size: 8px; letter-spacing: .13em; color: #909582; margin-bottom: 5px; }
@@ -112,6 +113,9 @@ select { appearance: none; }
 .product-bottom { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 13px; padding-top: 11px; border-top: 1px solid #e8e8df; }
 .product-bottom > span { color: #929786; font-size: 9px; }
 .add-button { display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 600; color: #355a45; }
+.product-quantity-control { display: flex; align-items: center; gap: 9px; color: #355a45; font-size: 11px; font-weight: 600; }
+.product-quantity-control button { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid #d9dfd1; border-radius: 50%; }
+.product-quantity-control button:disabled { opacity: .4; cursor: not-allowed; }
 .closing-note { border-radius: 8px; background: #ecefe1; display: flex; align-items: center; gap: 44px; padding: 35px 38px; margin: 54px 0 45px; position: relative; overflow: hidden; }
 .closing-note > div { display: flex; align-items: center; gap: 22px; min-width: 210px; }
 .closing-note h2 { font-family: Georgia, serif; font-size: 27px; line-height: 1.14; letter-spacing: -.5px; font-weight: normal; }

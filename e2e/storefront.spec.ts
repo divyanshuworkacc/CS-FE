@@ -201,6 +201,29 @@ test('uses PKCE login and checks out items from multiple brands together', async
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled()
 })
 
+test('favourite buttons stay in sync with the backend on every page', async ({ page }) => {
+  await fixture(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+
+  const saveButton = page.getByRole('button', { name: 'Save Sunday ceramic mug to favourites' })
+  await saveButton.scrollIntoViewIfNeeded()
+  const scrollBeforeToggle = await page.evaluate(() => window.scrollY)
+  await saveButton.click()
+  const removeButton = page.getByRole('button', { name: 'Remove Sunday ceramic mug from favourites' })
+  await expect(removeButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.product-card')).toHaveCount(5)
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBeforeToggle)
+
+  await page.getByRole('link', { name: 'Favourites', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Remove Sunday ceramic mug from favourites' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Remove Sunday ceramic mug from favourites' }).click()
+  await expect(page.getByText('A place for your favourites')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Discover', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Save Sunday ceramic mug to favourites' })).toHaveAttribute('aria-pressed', 'false')
+})
+
 test('new Keycloak users finish local registration', async ({ page }) => {
   await fixture(page, 'User', true)
   await page.goto('/')

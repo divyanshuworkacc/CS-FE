@@ -1,14 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { allPages, errorMessage, fetchPage } from '../lib/api'
 
 export function useCollection<T>(path: string | null, authenticated = false, revision = 0, page?: { skip: number; limit: number }) {
+  const requestKey = `${path}|${authenticated}|${page?.skip ?? ''}|${page?.limit ?? ''}`
+  const previousRequestKey = useRef(requestKey)
   const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [hasMore, setHasMore] = useState(false)
   useEffect(() => {
     const controller = new AbortController()
-    setData([]); setError(''); setHasMore(false)
+    if (previousRequestKey.current !== requestKey) {
+      setData([])
+      setHasMore(false)
+    }
+    previousRequestKey.current = requestKey
+    setError('')
     if (!path) { setLoading(false); return }
     setLoading(true)
     const request = page
@@ -21,6 +28,6 @@ export function useCollection<T>(path: string | null, authenticated = false, rev
       if (!controller.signal.aborted) setError(errorMessage(error))
     }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [path, authenticated, revision, page?.skip, page?.limit])
+  }, [path, authenticated, revision, page?.skip, page?.limit, requestKey])
   return { data, loading, error, hasMore }
 }
