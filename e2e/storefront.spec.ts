@@ -157,6 +157,26 @@ test('discovers and searches products across all brands', async ({ page }) => {
   await expect(page.locator('.product-card')).toContainText('Studio linen throw')
 })
 
+test('navigation uses page URLs and supports browser history and deep links', async ({ page }) => {
+  await fixture(page)
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/$/)
+  await page.getByRole('link', { name: 'Discover', exact: true }).click()
+  await expect(page).toHaveURL(/\/discover$/)
+
+  await page.getByRole('link', { name: 'Favourites', exact: true }).click()
+  await expect(page).toHaveURL(/\/favourites$/)
+  await page.getByRole('link', { name: 'My orders', exact: true }).click()
+  await expect(page).toHaveURL(/\/orders$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/favourites$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/discover$/)
+
+  await page.goto('/orders')
+  await expect(page.getByRole('heading', { name: 'Make yourself at home' })).toBeVisible()
+})
+
 test('uses PKCE login and checks out items from multiple brands together', async ({ page }) => {
   const state = await fixture(page)
   await page.goto('/')
@@ -195,7 +215,7 @@ test('administrators can create products and brands', async ({ page }) => {
   await fixture(page, 'Admin')
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.getByRole('button', { name: 'Manage store', exact: true }).click()
+  await page.getByRole('link', { name: 'Manage store', exact: true }).click()
   await page.getByRole('button', { name: 'Add product', exact: true }).click()
   await page.getByLabel('Product name').fill('Field notebook')
   await page.getByLabel('Category', { exact: true }).fill('Stationery')

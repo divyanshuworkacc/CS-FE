@@ -12,4 +12,3 @@ export interface MarketplaceOrderCreate {
   order_items: { product_id: number; quantity: number }[]
 }
 export interface CartItem { product: Product; quantity: number }
-export type View = 'shop' | 'favourites' | 'orders' | 'manage'
