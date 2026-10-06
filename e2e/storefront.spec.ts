@@ -17,6 +17,7 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
     { id: 6, name: 'Studio linen throw', category: 'Home', price: 56, quantity: 4, tenant_id: 2 },
   ]
   const orders: unknown[] = []
+  const checkoutBodies: { address: string; order_items: { quantity: number; product_id: number }[] }[] = []
   const productRequests: string[] = []
   const profile = { id: 1, name: 'Alex', username: 'alex', tenant_id: 1, role_id: role === 'Admin' ? 1 : 3, role, tenant_name: 'acme' }
   await page.route('http://localhost:8080/**', async route => {
@@ -89,6 +90,7 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
     } else if (path === '/orders') {
       if (method === 'POST') {
         const body = request.postDataJSON()
+        checkoutBodies.push(body)
         const entries = body.order_items as { quantity: number; product_id: number }[]
         const grouped = new Map<number, typeof entries>()
         for (const item of entries) {
@@ -99,7 +101,7 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
         let nextOrderId = orders.length
         const created = [...grouped.entries()].map(([tenant_id, items]) => {
           const id = ++nextOrderId
-          return { id, user_id: 1, tenant_id,
+          return { id, user_id: 1, tenant_id, address: body.address,
             total_quantity: items.reduce((sum, item) => sum + item.quantity, 0),
             amount: items.reduce((sum, item) => sum + item.quantity * products.find(product => product.id === item.product_id)!.price, 0),
             order_items: items.map((item, i) => ({ ...item, id: i + 1, order_id: id })) }
@@ -110,7 +112,7 @@ async function fixture(page: Page, role: 'User' | 'Admin' = 'User', newUser = fa
     else if (path === '/acme/users') { await route.fulfill({ json: [profile] }) }
     else await route.fulfill({ status: 404, json: { detail: 'Not found' } })
   })
-  return { products, authorization: () => authorization, productRequests }
+  return { products, authorization: () => authorization, productRequests, checkoutBodies }
 }
 
 test('browses, filters, sorts, and preserves the bag across reloads', async ({ page }) => {
@@ -192,9 +194,16 @@ test('uses PKCE login and checks out items from multiple brands together', async
   await page.getByRole('button', { name: 'Shopping bag, 2 items' }).click()
   await expect(page.getByRole('dialog')).toContainText('acme')
   await expect(page.getByRole('dialog')).toContainText('studio')
-  await page.getByRole('button', { name: 'Place order', exact: true }).click()
+  const placeOrder = page.getByRole('button', { name: 'Place order', exact: true })
+  await expect(placeOrder).toBeDisabled()
+  await page.getByLabel('Delivery address').fill('12 Market Street, Springfield')
+  await expect(placeOrder).toBeEnabled()
+  await placeOrder.click()
   await expect(page.getByRole('heading', { name: 'Order #0001' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Order #0002' })).toBeVisible()
+  await expect(page.locator('.order-card').nth(0)).toContainText('Delivery address: 12 Market Street, Springfield')
+  await expect(page.locator('.order-card').nth(1)).toContainText('Delivery address: 12 Market Street, Springfield')
+  expect(state.checkoutBodies[0].address).toBe('12 Market Street, Springfield')
   await expect(page.locator('.orders-list')).toContainText('₹18.00')
   await expect(page.locator('.orders-list')).toContainText('₹56.00')
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()

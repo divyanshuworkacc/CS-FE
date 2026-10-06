@@ -66,7 +66,7 @@ export function Orders({ revision, retry, shop }: { revision: number; retry: () 
             <div className="flex-1"><h2>Order #{String(order.id).padStart(4, '0')}</h2><p>{order.total_quantity} {order.total_quantity === 1 ? 'item' : 'items'} · {order.brandName}</p></div>
             <span className="order-status"><Check size={14} /> Placed</span><strong>{money(order.amount)}</strong>
           </div>
-          <div className="order-items">{order.order_items.map(item => <div className="flex justify-between gap-4" key={item.id}>
+          <div className="order-items"><p className="text-stone-500 break-words">Delivery address: {order.address}</p>{order.order_items.map(item => <div className="flex justify-between gap-4" key={item.id}>
             <span>{order.productNames[item.product_id] || `Product #${item.product_id}`}</span><span className="text-stone-500">Qty {item.quantity}</span>
           </div>)}</div>
         </article>)}</div>}

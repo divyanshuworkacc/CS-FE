@@ -6,7 +6,7 @@ import { EmptyState, ErrorNotice, Loading, SectionHeading, SignInPrompt } from '
 import { useCart } from '../cart/CartContext'
 import { useStore } from '../../app/store-context'
 import { useCollection } from '../../hooks/useCollection'
-import { tenantPath } from '../../lib/api'
+import { errorMessage, fetchCategories, tenantPath } from '../../lib/api'
 import { purchasableQuantity } from '../../lib/cart'
 import type { Product } from '../../types'
 import { CatalogResults } from './CatalogResults'
@@ -26,6 +26,9 @@ export function CatalogPage({ mode }: { mode: CatalogMode }) {
   const [sort, setSort] = useState<CatalogSort>('featured')
   const [productPage, setProductPage] = useState(0)
   const [favouritesRevision, setFavouritesRevision] = useState(0)
+  const [categories, setCategories] = useState<string[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [categoriesError, setCategoriesError] = useState('')
 
   const productFilters = {
     ...(backendQuery ? { search: backendQuery } : {}),
@@ -49,6 +52,18 @@ export function CatalogPage({ mode }: { mode: CatalogMode }) {
     store.revision + (mode === 'discover' ? favouritesRevision : 0))
 
   useEffect(() => {
+    const controller = new AbortController()
+    setCategoriesError('')
+    setCategoriesLoading(true)
+    fetchCategories(store.selectedBrand?.name, controller.signal).then(setCategories)
+      .catch(error => {
+        if (!controller.signal.aborted) setCategoriesError(errorMessage(error))
+      })
+      .finally(() => { if (!controller.signal.aborted) setCategoriesLoading(false) })
+    return () => controller.abort()
+  }, [store.selectedBrand?.name, store.revision])
+
+  useEffect(() => {
     setQuery('')
     setBackendQuery('')
     setCategory('All finds')
@@ -60,11 +75,11 @@ export function CatalogPage({ mode }: { mode: CatalogMode }) {
   }, [query])
 
   const source = products.data
-  const categories = ['All finds', ...new Set(source.map(product => product.category).sort())]
+  const categoryOptions = ['All finds', ...categories]
   const visible = source
   const hasMore = products.hasMore
-  const loading = store.loadingTenants || (products.loading && products.data.length === 0)
-  const error = store.tenantsError || products.error || (mode === 'discover' ? favourites.error : '')
+  const loading = store.loadingTenants || categoriesLoading || (products.loading && products.data.length === 0)
+  const error = store.tenantsError || products.error || categoriesError || (mode === 'discover' ? favourites.error : '')
 
   if (mode === 'favourites' && !auth.profile && !auth.needsProfile) {
     return <section className="collection"><SignInPrompt action={() => void (auth.authenticated ? auth.reloadProfile() : auth.login())} /></section>
@@ -86,7 +101,7 @@ export function CatalogPage({ mode }: { mode: CatalogMode }) {
       </SectionHeading>
       <CatalogToolbar query={query} onQueryChange={value => { setQuery(value); setProductPage(0) }}
         sort={sort} onSortChange={value => { setSort(value); setProductPage(0) }}
-        categories={categories} category={category} onCategoryChange={value => { setCategory(value); setProductPage(0) }} />
+        categories={categoryOptions} category={category} onCategoryChange={value => { setCategory(value); setProductPage(0) }} />
       {error ? <ErrorNotice retry={store.refresh}>{error}</ErrorNotice> : loading ? <Loading />
         : <CatalogResults products={visible} tenants={store.tenants}
           selectedBrandId={store.selectedBrandId} favourites={mode === 'favourites' ? products.data : favourites.data} cartItems={cart.items}

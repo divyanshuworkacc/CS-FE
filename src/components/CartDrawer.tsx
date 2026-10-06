@@ -14,6 +14,7 @@ export function CartDrawer({ tenants, items, replace, close, ordered }: {
   const auth = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [address, setAddress] = useState('')
   const tenantNames = new Map(tenants.map(tenant => [tenant.id, tenant.name]))
   const brandCount = new Set(items.map(item => item.product.tenant_id)).size
   function quantity(id: number, delta: number) {
@@ -46,6 +47,7 @@ export function CartDrawer({ tenants, items, replace, close, ordered }: {
       if (changed) throw new Error('Availability or prices changed. Your bag has been updated; please review it before placing your order.')
       if (!refreshed.length) throw new Error('Your bag is empty.')
       const checkout: MarketplaceOrderCreate = {
+        address: address.trim(),
         order_items: refreshed.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
       }
       const orders = await api<Order[]>('/orders', {
@@ -69,9 +71,10 @@ export function CartDrawer({ tenants, items, replace, close, ordered }: {
         </div></div>)}</div>
         <div className="cart-summary"><div className="flex justify-between"><span>Order total</span><strong>{money(cartTotal(items))}</strong></div>
           <p className="text-xs text-stone-500 mt-3 mb-5">One checkout places an order with each brand in your bag. No online payment is collected.</p>
+          <label className="field mb-5">Delivery address<textarea aria-label="Delivery address" value={address} onChange={event => setAddress(event.target.value)} required maxLength={500} rows={3} /></label>
           {!auth.authenticated ? <button className="button-primary w-full justify-center" disabled={auth.checking} onClick={() => void auth.login()}>Sign in to order <ArrowRight size={17} /></button>
             : !auth.profile ? <p className="text-sm text-stone-600">Complete your account setup before placing an order.</p>
-            : <button className="button-primary w-full justify-center" onClick={() => void checkout()} disabled={busy}>{busy ? 'Placing your order…' : 'Place order'}<ArrowRight size={17} /></button>}
+            : <button className="button-primary w-full justify-center" onClick={() => void checkout()} disabled={busy || !address.trim()}>{busy ? 'Placing your order…' : 'Place order'}<ArrowRight size={17} /></button>}
           <div className="flex justify-center gap-2 items-center text-xs text-stone-500 mt-4"><ShieldCheck size={15} />Account protected by Keycloak</div>
         </div></>}
   </Modal>

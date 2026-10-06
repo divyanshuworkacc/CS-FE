@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./keycloak', () => ({ accessToken: vi.fn(async () => 'test-token') }))
-import { allPages, api, ApiError, fetchPage, tenantPath } from './api'
+import { allPages, api, ApiError, fetchCategories, fetchPage, tenantPath } from './api'
 import { accessToken } from './keycloak'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks() })
@@ -48,6 +48,15 @@ describe('API client', () => {
     await fetchPage('/Acme/products?search=blue+mug', 10, 11)
     expect(fetch).toHaveBeenCalledOnce()
     expect(fetch.mock.calls[0][0]).toContain('/Acme/products?search=blue+mug&skip=10&limit=11')
+  })
+  it('fetches all categories globally or for one tenant', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(['Accessories'])))
+    vi.stubGlobal('fetch', fetch)
+    await fetchCategories()
+    await fetchCategories('Home & Co')
+    expect(fetch.mock.calls[0][0]).toContain('/categories')
+    expect(fetch.mock.calls[0][0]).not.toContain('tenant_name')
+    expect(fetch.mock.calls[1][0]).toContain('/categories?tenant_name=Home+%26+Co')
   })
   it('encodes tenant names as one path segment', () => {
     expect(tenantPath('Home & Co', 'products')).toBe('/Home%20%26%20Co/products')

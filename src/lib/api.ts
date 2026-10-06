@@ -3,9 +3,11 @@ import { accessToken } from './keycloak'
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
+
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.'
 }
+
 export async function api<T>(path: string, options: RequestInit = {}, authenticated = false): Promise<T> {
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
@@ -30,6 +32,7 @@ export async function api<T>(path: string, options: RequestInit = {}, authentica
   }
   return body as T
 }
+
 export async function allPages<T>(path: string, authenticated = false, signal?: AbortSignal): Promise<T[]> {
   const records: T[] = []
   const separator = path.includes('?') ? '&' : '?'
@@ -39,10 +42,18 @@ export async function allPages<T>(path: string, authenticated = false, signal?: 
     if (page.length < 100) return records
   }
 }
+
 export function fetchPage<T>(path: string, skip: number, limit: number, authenticated = false, signal?: AbortSignal): Promise<T[]> {
   const separator = path.includes('?') ? '&' : '?'
   return api<T[]>(`${path}${separator}skip=${skip}&limit=${limit}`, { signal }, authenticated)
 }
+
+export function fetchCategories(tenantName?: string, signal?: AbortSignal): Promise<string[]> {
+  const params = new URLSearchParams(tenantName ? { tenant_name: tenantName } : {})
+  const query = params.size ? `?${params}` : ''
+  return api<string[]>(`/categories${query}`, { signal })
+}
+
 export const tenantPath = (name: string, resource: string, query?: Record<string, string>) => {
   const path = `/${encodeURIComponent(name)}/${resource}`
   const params = new URLSearchParams(query)
