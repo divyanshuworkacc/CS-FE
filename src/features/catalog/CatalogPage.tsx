@@ -81,11 +81,8 @@ export function CatalogPage({ mode }: { mode: CatalogMode }) {
   const loading = store.loadingTenants || categoriesLoading || (products.loading && products.data.length === 0)
   const error = store.tenantsError || products.error || categoriesError || (mode === 'discover' ? favourites.error : '')
 
-  if (mode === 'favourites' && !auth.profile && !auth.needsProfile) {
+  if (mode === 'favourites' && !auth.profile) {
     return <section className="collection"><SignInPrompt action={() => void (auth.authenticated ? auth.reloadProfile() : auth.login())} /></section>
-  }
-  if (mode === 'favourites' && auth.needsProfile) {
-    return <section className="collection"><EmptyState title="Create your customer account">Finish the account setup above, then save products here.</EmptyState></section>
   }
 
   return <>

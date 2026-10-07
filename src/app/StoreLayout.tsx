@@ -5,7 +5,6 @@ import { useAuth } from '../auth/AuthProvider'
 import { CartDrawer } from '../components/CartDrawer'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
-import { ProfileSetup } from '../components/ProfileSetup'
 import { useCart } from '../features/cart/CartContext'
 import { useStore } from './store-context'
 import type { Order } from '../types'
@@ -39,15 +38,18 @@ export function StoreLayout() {
     store.refresh()
   }
 
+  const isAdminBrandsTab =
+  auth.profile?.role === 'Admin' &&
+  new URLSearchParams(location.search).get('tab') === 'brands'
+
   return <div className="app-shell">
-    <SiteHeader showBrandFilter={showBrandFilter} />
+    <SiteHeader showBrandFilter={showBrandFilter && !isAdminBrandsTab} />
     <main className="main-content">
       {auth.error && <div className="connection-notice"><ShieldCheck size={17} /><span>{auth.error}</span>
         <button onClick={() => auth.authenticated ? void auth.reloadProfile() : window.location.reload()}>
           {auth.authenticated ? 'Retry' : 'Reload'}<ArrowRight size={13} />
         </button>
       </div>}
-      {auth.needsProfile && <ProfileSetup done={store.refresh} />}
       <Outlet />
     </main>
     <SiteFooter />

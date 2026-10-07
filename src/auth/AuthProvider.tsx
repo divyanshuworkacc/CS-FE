@@ -5,7 +5,7 @@ import type { Profile } from '../types'
 
 interface AuthState {
   authenticated: boolean; checking: boolean; profile: Profile | null;
-  needsProfile: boolean; error: string; username: string;
+  error: string; username: string;
   login: () => Promise<void>; logout: () => Promise<void>; reloadProfile: () => Promise<void>
 }
 const Context = createContext<AuthState | null>(null)
@@ -14,24 +14,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false)
   const [checking, setChecking] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [needsProfile, setNeedsProfile] = useState(false)
   const [error, setError] = useState('')
   const reloadProfile = useCallback(async () => {
     setError('')
     try {
       setProfile(await api<Profile>('/users/me', {}, true))
-      setNeedsProfile(false)
     } catch (error) {
       setProfile(null)
-      if (error instanceof ApiError && error.status === 404 && error.message.includes('no matching local account')) {
-        setNeedsProfile(true)
-      } else { setNeedsProfile(false); setError(errorMessage(error)) }
+      setError(errorMessage(error))
     }
   }, [])
   useEffect(() => {
     let alive = true
     keycloak.onAuthLogout = () => {
-      setAuthenticated(false); setProfile(null); setNeedsProfile(false)
+      setAuthenticated(false); setProfile(null)
     }
     keycloak.onTokenExpired = () => { void keycloak.updateToken(30).catch(() => keycloak.clearToken()) }
     initializeAuth().then(async signedIn => {
@@ -52,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     catch { setError('Could not sign out. Please try again.') }
   }
   return <Context.Provider value={{
-    authenticated, checking, profile, needsProfile, error,
+    authenticated, checking, profile, error,
     username: keycloak.tokenParsed?.preferred_username || '', login, logout, reloadProfile
   }}>
     {children}

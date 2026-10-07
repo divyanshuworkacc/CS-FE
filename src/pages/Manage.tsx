@@ -6,6 +6,7 @@ import { money } from '../lib/format'
 import type { Product, Tenant, User } from '../types'
 import { EmptyState, ErrorNotice, Loading, Modal, SectionHeading } from '../components/ui'
 import { ProductArt } from '../components/ProductCard'
+import { useSearchParams } from 'react-router-dom'
 
 type Tab = 'products' | 'brands' | 'managers'
 
@@ -94,7 +95,6 @@ export function Manage({ tenant, tenants, products, refresh, selectTenant }: {
 }) {
   const { profile } = useAuth()
   const admin = profile?.role === 'Admin'
-  const [tab, setTab] = useState<Tab>('products')
   const [editing, setEditing] = useState<Product | null | undefined>(undefined)
   const [managers, setManagers] = useState<User[]>([])
   const [accessReady, setAccessReady] = useState(false)
@@ -103,6 +103,22 @@ export function Manage({ tenant, tenants, products, refresh, selectTenant }: {
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
   const canEdit = Boolean(tenant && (admin || (profile?.role === 'Tenant' && profile.tenant_id === tenant.id)))
+  const [searchParams, setSearchParams] = useSearchParams()
+  
+  const requestedTab = searchParams.get('tab')
+  const tab: Tab =
+    requestedTab === 'brands' || requestedTab === 'managers'
+      ? requestedTab
+      : 'products'
+
+  function setTab(nextTab: Tab) {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current)
+      if (nextTab === 'products') next.delete('tab')
+      else next.set('tab', nextTab)
+      return next
+    }, { replace: true })
+  }
 
   useEffect(() => {
     const controller = new AbortController()
