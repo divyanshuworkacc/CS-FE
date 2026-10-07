@@ -74,7 +74,7 @@ export function CartDrawer({ tenants, items, replace, close, ordered }: {
           <label className="field mb-5">Delivery address<textarea aria-label="Delivery address" value={address} onChange={event => setAddress(event.target.value)} required maxLength={500} rows={3} /></label>
           {!auth.authenticated ? <button className="button-primary w-full justify-center" disabled={auth.checking} onClick={() => void auth.login()}>Sign in to order <ArrowRight size={17} /></button>
             : !auth.profile ? <p className="text-sm text-stone-600">Complete your account setup before placing an order.</p>
-            : <button className="button-primary w-full justify-center" onClick={() => void checkout()} disabled={busy || !address.trim()}>{busy ? 'Placing your order…' : 'Place order'}<ArrowRight size={17} /></button>}
+              : <button className="button-primary w-full justify-center" onClick={() => void checkout()} disabled={busy || !address.trim()}>{busy ? 'Placing your order…' : 'Place order'}<ArrowRight size={17} /></button>}
           <div className="flex justify-center gap-2 items-center text-xs text-stone-500 mt-4"><ShieldCheck size={15} />Account protected by Keycloak</div>
         </div></>}
   </Modal>
